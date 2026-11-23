@@ -1,0 +1,38 @@
+name: Check stock
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes (GitHub can be a bit late sometimes)
+  workflow_dispatch:          # lets you run it by hand from the Actions tab
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests beautifulsoup4
+
+      # Remembers what was in stock last time, so you only get one alert
+      - uses: actions/cache/restore@v4
+        with:
+          path: .stock_state.json
+          key: stock-state-${{ github.run_id }}
+          restore-keys: stock-state-
+
+      - run: python stock_checker.py
+        env:
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .stock_state.json
+          key: stock-state-${{ github.run_id }}
